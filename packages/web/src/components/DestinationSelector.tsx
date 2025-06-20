@@ -1,8 +1,11 @@
-// 1. 파일 경로: packages/web/src/components/DestinationSelector.tsx (새 파일)
-// 설명: 사용자가 여행지를 검색하고, 비교 목록에 추가/삭제할 수 있는 UI 컴포넌트입니다.
+
+//
+// 3. 파일 경로: packages/web/src/components/DestinationSelector.tsx (수정)
+// 설명: 검색 로직을 개선하여 더 정확하고 관대한 검색이 가능하도록 수정합니다.
 //
 import { useState, useMemo } from 'react';
 import { useQuery, gql } from '@apollo/client';
+import { Destination } from '@/types'; // 중앙 타입 임포트
 
 // DB에 있는 모든 여행지의 이름과 ID를 가져오는 쿼리
 const GET_ALL_DESTINATIONS_LIST = gql`
@@ -14,12 +17,6 @@ const GET_ALL_DESTINATIONS_LIST = gql`
     }
   }
 `;
-
-interface Destination {
-  id: string;
-  name: string;
-  nameEn: string;
-}
 
 interface DestinationSelectorProps {
   selectedDestinations: Destination[];
@@ -33,13 +30,31 @@ const DestinationSelector = ({ selectedDestinations, onSelectionChange }: Destin
   // 검색어에 따라 필터링된 여행지 목록
   const filteredDestinations = useMemo(() => {
     if (!data?.allDestinations) return [];
-    // 이미 선택된 도시는 목록에서 제외
+    
+    // [수정] 검색어를 소문자로 변환하여, 대소문자 구분 없는 검색을 보장합니다.
+    const lowercasedSearchTerm = searchTerm.toLowerCase();
+    
+    // 이미 선택된 도시는 목록에서 제외하기 위해 ID Set을 만듭니다.
     const selectedIds = new Set(selectedDestinations.map(d => d.id));
-    return data.allDestinations.filter(
-      (dest: Destination) =>
-        !selectedIds.has(dest.id) &&
-        (dest.name.includes(searchTerm) || dest.nameEn.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+
+    // 검색어가 비어있으면 필터링하지 않습니다.
+    if (!lowercasedSearchTerm) {
+      return [];
+    }
+
+    return data.allDestinations.filter((dest: Destination) => {
+      // 1. 이미 선택된 도시인지 확인
+      const isAlreadySelected = selectedIds.has(dest.id);
+      if (isAlreadySelected) {
+        return false;
+      }
+
+      // 2. 한글 또는 영문 이름에 검색어가 포함되는지 확인
+      const nameMatches = dest.name.toLowerCase().includes(lowercasedSearchTerm);
+      const nameEnMatches = dest.nameEn?.toLowerCase().includes(lowercasedSearchTerm) ?? false;
+      
+      return nameMatches || nameEnMatches;
+    });
   }, [data, searchTerm, selectedDestinations]);
 
   const addDestination = (dest: Destination) => {
@@ -75,7 +90,7 @@ const DestinationSelector = ({ selectedDestinations, onSelectionChange }: Destin
           className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         />
         {/* 검색 결과 드롭다운 */}
-        {searchTerm && filteredDestinations.length > 0 && (
+        {filteredDestinations.length > 0 && (
           <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto">
             {filteredDestinations.map((dest: Destination) => (
               <li key={dest.id}>
@@ -92,9 +107,3 @@ const DestinationSelector = ({ selectedDestinations, onSelectionChange }: Destin
 };
 
 export default DestinationSelector;
-// 이 컴포넌트는 사용자가 여행지를 검색하고 선택할 수 있는 UI를 제공합니다.
-// 선택된 여행지는 상위 컴포넌트에서 관리되며, 추가/삭제 시 상위 컴포넌트의 상태를 업데이트합니다.
-// 검색어에 따라 필터링된 여행지 목록을 보여주며, 선택된 여행지는 목록 상단에 표시됩니다.       
-// 이 컴포넌트는 여행지 선택 UI를 구현하며, Apollo Client를 사용하여 GraphQL 쿼리로 데이터를 가져옵니다.
-// 선택된 여행지는 상위 컴포넌트에서 관리되며, 추가/삭제 시 상위 컴포넌트의 상태를 업데이트합니다.
-// 검색어에 따라 필터링된 여행지 목록을 보여주며, 선택된

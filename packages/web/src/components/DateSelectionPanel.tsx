@@ -1,3 +1,7 @@
+
+// 2. 파일 경로: packages/web/src/components/DateSelectionPanel.tsx (수정)
+// 설명: 누락되었던 export default 구문을 추가합니다.
+//
 import { useState } from 'react';
 
 interface DateSelectionPanelProps {
@@ -37,7 +41,7 @@ const DateSelectionPanel = ({ onDateChange }: DateSelectionPanelProps) => {
           />
         </div>
       </div>
-       <button
+       <button 
         onClick={handleApplyClick}
         className="mt-6 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
       >

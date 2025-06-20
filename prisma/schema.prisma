@@ -1,6 +1,6 @@
 //
-// 파일 경로: prisma/schema.prisma
-// 설명: 날씨, 경비, 추천 문구 등 상세 정보를 저장하기 위해 Destination 모델을 확장합니다.
+// 1. 파일 경로: prisma/schema.prisma (수정)
+// 설명: 실시간 데이터를 저장하기 위한 RealtimeData 모델을 다시 추가하고, Destination 모델과 연결합니다.
 //
 generator client {
   provider = "prisma-client-js"
@@ -18,16 +18,31 @@ model Destination {
   nameEn String? @map("name_en")
 
   summary         String? @db.Text
-  flightTime      String? @map("flight_time")
   recommendation  String? @db.Text
-  
-  // JSON 타입으로 상세 정보를 저장합니다.
-  scores          Json?   // { "cost": 0.9, "weather": 0.8, ... }
-  weather         Json?   // { "text": "...", "icon": "..." }
-  flight          Json?   // { "time": "...", "cost": "..." }
-  expenses        Json?   // { "total": "...", "breakdown": { ... } }
+  flightTime      String? @map("flight_time")
+
+  scores          Json?
+  weather         Json?
+  flight          Json?
+  expenses        Json?
   activities      String[]
   accommodations  String[]
   
+  // [추가] Destination과 RealtimeData를 1:1 관계로 연결합니다.
+  realtimeData RealtimeData?
+  
   @@map("destinations")
+}
+
+// [신규] 크롤링한 데이터를 저장할 모델을 다시 추가합니다.
+model RealtimeData {
+  id                   String      @id @default(cuid())
+  destinationId        String      @unique @map("destination_id")
+  destination          Destination @relation(fields: [destinationId], references: [id])
+  
+  currentFlightPrice   Int?        @map("current_flight_price")
+  currentFlightTime    String?     @map("current_flight_time")
+  lastScrapedAt        DateTime    @updatedAt @map("last_scraped_at")
+
+  @@map("realtime_data")
 }

@@ -1,21 +1,22 @@
 
 //
-// 2. 파일 경로: packages/web/src/pages/index.tsx (수정)
-// 설명: 메인 페이지에 날짜 선택 패널을 추가하고, 선택된 날짜를 백엔드로 전달하도록 수정합니다.
+// 4. 파일 경로: packages/web/src/pages/index.tsx (수정됨)
+// 설명: 기본 선택 도시를 설정하고, 관련 로직을 수정합니다.
 //
 import { useState, useMemo } from 'react';
 import { useQuery, gql } from '@apollo/client';
 import Head from 'next/head';
 import { Chart as ChartJS, registerables } from 'chart.js';
 import { Radar, Doughnut } from 'react-chartjs-2';
-import DateSelectionPanel from '../components/DateSelectionPanel';
+import DateSelectionPanel from '@/components/DateSelectionPanel';
+import DestinationSelector from '@/components/DestinationSelector';
+import { Destination, Priority } from '@/types'; // 중앙 타입 임포트
 
 ChartJS.register(...registerables);
 
-// [수정] GraphQL 쿼리가 날짜 변수를 받도록 변경합니다.
 const GET_DESTINATIONS = gql`
-  query GetDestinations($month: Int!, $startDate: String!, $endDate: String!) {
-    destinations(month: $month, startDate: $startDate, endDate: $endDate) {
+  query GetDestinations($ids: [String!]!, $month: Int!, $startDate: String!, $endDate: String!) {
+    destinationsByIds(ids: $ids, month: $month, startDate: $startDate, endDate: $endDate) {
       id
       name
       nameEn
@@ -32,70 +33,70 @@ const GET_DESTINATIONS = gql`
   }
 `;
 
-// --- 타입 정의 ---
-type Priority = {
-  id: 'cost' | 'weather' | 'activity' | 'flight' | 'uniqueness';
-  label: string;
-  icon: string;
-};
-
-interface Destination {
-  id: string;
-  name: string;
-  nameEn: string;
-  summary: string;
-  flightTime: string;
-  recommendation: string;
-  scores: Record<string, number>;
-  weather: { text: string; icon: string };
-  flight: { time: string; cost: string };
-  expenses: { total: string; breakdown: Record<string, number> };
-  activities: string[];
-  accommodations: string[];
-}
-
 const PRIORITIES: Priority[] = [
-  { id: 'cost', label: '가성비', icon: '💰' },
-  { id: 'weather', label: '날씨', icon: '☀️' },
-  { id: 'activity', label: '즐길거리', icon: '🏄' },
-  { id: 'flight', label: '짧은 비행', icon: '✈️' },
+  { id: 'cost', label: '가성비', icon: '💰' }, { id: 'weather', label: '날씨', icon: '☀️' },
+  { id: 'activity', label: '즐길거리', icon: '🏄' }, { id: 'flight', label: '짧은 비행', icon: '✈️' },
   { id: 'uniqueness', label: '특별함', icon: '✨' },
 ];
 
-export default function Home() {
-  const [dates, setDates] = useState({
-    startDate: '2025-08-01',
-    endDate: '2025-08-05',
-    month: 8,
-  });
+// [수정] 기본으로 선택될 도시 목록을 정의합니다.
+// 이 도시들이 seed.ts에 포함되어 있어야 정상적으로 데이터를 불러옵니다.
+const defaultDestinations: Destination[] = [
+    { id: 'bangkok', name: '방콕', nameEn: 'Bangkok' },
+    { id: 'nhatrang', name: '나트랑', nameEn: 'Nha Trang' },
+    { id: 'cebu', name: '세부', nameEn: 'Cebu' },
+    { id: 'sapporo', name: '삿포로', nameEn: 'Sapporo' },
+    { id: 'fukuoka', name: '후쿠오카', nameEn: 'Fukuoka' },
+    { id: 'osaka', name: '오사카', nameEn: 'Osaka' },
+];
 
-  const [priorities, setPriorities] = useState<Record<string, number>>({
-    cost: 50, weather: 50, activity: 50, flight: 50, uniqueness: 50,
-  });
+
+export default function Home() {
+  const [dates, setDates] = useState({ startDate: '2025-08-01', endDate: '2025-08-05', month: 8 });
+  const [priorities, setPriorities] = useState<Record<string, number>>({ cost: 50, weather: 50, activity: 50, flight: 50, uniqueness: 50 });
+  // [수정] useState의 초기값으로 기본 도시 목록을 사용합니다.
+  const [selectedDestinations, setSelectedDestinations] = useState<Destination[]>(defaultDestinations);
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
   const { loading, error, data, refetch } = useQuery(GET_DESTINATIONS, {
-    variables: { ...dates },
+    variables: { 
+      ids: selectedDestinations.map(d => d.id),
+      ...dates 
+    },
+    skip: selectedDestinations.length === 0,
     onCompleted: (fetchedData) => {
-      if (fetchedData?.destinations?.length > 0 && !activeTab) {
-        setActiveTab(fetchedData.destinations[0].id);
+      if (fetchedData?.destinationsByIds?.length > 0 && (!activeTab || !selectedDestinations.find(d => d.id === activeTab))) {
+        setActiveTab(fetchedData.destinationsByIds[0].id);
       }
     },
   });
 
+  const handleSelectionChange = (newSelection: Destination[]) => {
+    setSelectedDestinations(newSelection);
+    // 선택된 도시가 있을 때만 데이터 요청
+    if (newSelection.length > 0) {
+      refetch({ ids: newSelection.map(d => d.id), ...dates });
+    } else {
+        // 선택된 도시가 없으면 탭도 초기화
+        setActiveTab(null);
+    }
+  };
+
   const handleDateChange = (startDate: string, endDate: string) => {
     const newMonth = new Date(startDate).getMonth() + 1;
-    setDates({ startDate, endDate, month: newMonth });
-    refetch({ startDate, endDate, month: newMonth });
+    const newDates = { startDate, endDate, month: newMonth };
+    setDates(newDates);
+    if (selectedDestinations.length > 0) {
+        refetch({ ids: selectedDestinations.map(d => d.id), ...newDates });
+    }
   };
-  
+
   const handleSliderChange = (id: string, value: string) => {
     setPriorities((prev) => ({ ...prev, [id]: Number(value) }));
   };
 
   const rankedDestinations = useMemo(() => {
-    if (!data?.destinations) return [];
-
+    if (!data?.destinationsByIds) return [];
     const totalPriority = Object.values(priorities).reduce((sum, val) => sum + val, 0);
     const weights: Record<string, number> = {};
     if (totalPriority > 0) {
@@ -103,42 +104,34 @@ export default function Home() {
         weights[key] = priorities[key] / totalPriority;
       }
     }
-    
-    const cityScores = data.destinations.map((dest: Destination) => {
+    const cityScores = data.destinationsByIds.map((dest: Destination) => {
       let totalScore = 0;
-      for (const priorityId in weights) {
-        totalScore += (dest.scores[priorityId] || 0) * (weights[priorityId] || 0);
+      if(dest.scores) {
+        for (const priorityId in weights) {
+          totalScore += (dest.scores[priorityId] || 0) * (weights[priorityId] || 0);
+        }
       }
       return { ...dest, score: totalScore };
     });
-
-    interface CityScore extends Destination {
-      score: number;
-    }
+    interface CityScore extends Destination { score: number; }
     return cityScores.sort((a: CityScore, b: CityScore) => b.score - a.score);
   }, [data, priorities]);
 
   const topCity = rankedDestinations[0];
-  const activeCityData = data?.destinations.find((d: Destination) => d.id === activeTab);
+  const activeCityData = data?.destinationsByIds.find((d: Destination) => d.id === activeTab);
   
-  interface RadarChartDataset {
-    label: string; data: number[]; backgroundColor: string; borderColor: string; borderWidth: number;
-  }
-  interface RadarChartData {
-    labels: string[]; datasets: RadarChartDataset[];
-  }
-  const radarChartData: RadarChartData = {
-    labels: data?.destinations.map((d: Destination) => d.name) || [],
+  const radarChartData = {
+    labels: data?.destinationsByIds.map((d: Destination) => d.name) || [],
     datasets: [{
       label: '종합 매력도 점수',
-      data: data?.destinations.map((d: Destination) => rankedDestinations.find((ranked: Destination & { score: number }) => ranked.id === d.id)?.score * 100 || 0) || [],
+      data: data?.destinationsByIds.map((d: Destination) => rankedDestinations.find((ranked: Destination & { score: number }) => ranked.id === d.id)?.score * 100 || 0) || [],
       backgroundColor: 'rgba(59, 130, 246, 0.2)',
       borderColor: 'rgba(59, 130, 246, 1)',
       borderWidth: 2,
     }],
   };
   
-  const doughnutChartData = activeCityData ? {
+  const doughnutChartData = activeCityData && activeCityData.expenses ? {
     labels: ['항공', '숙소', '액티비티', '식비/기타'],
     datasets: [{
       data: Object.values(activeCityData.expenses.breakdown),
@@ -146,10 +139,7 @@ export default function Home() {
       hoverOffset: 4,
     }],
   } : { labels: [], datasets: [] };
-
-  if (loading) return <div className="flex justify-center items-center min-h-screen">로딩 중...</div>;
-  if (error) return <div className="flex justify-center items-center min-h-screen">오류가 발생했습니다: {error.message}</div>;
-
+  
   return (
     <>
       <Head>
@@ -157,18 +147,18 @@ export default function Home() {
         <meta name="description" content="실시간 여행지 비교 분석" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-
       <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
         <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-30">
-          <div className="container mx-auto px-4 py-4">
-            <h1 className="text-2xl md:text-3xl font-bold text-center text-gray-800 dark:text-white">나에게 꼭 맞는 여행 찾기</h1>
-            <p className="text-center text-gray-500 dark:text-gray-300 mt-1">여행 스타일을 설정하고 최적의 목적지를 추천 받아보세요.</p>
-          </div>
+            <div className="container mx-auto px-4 py-4">
+                <h1 className="text-2xl md:text-3xl font-bold text-center text-gray-800 dark:text-white">나에게 꼭 맞는 여행 찾기</h1>
+                <p className="text-center text-gray-500 dark:text-gray-300 mt-1">여행 스타일을 설정하고 최적의 목적지를 추천 받아보세요.</p>
+            </div>
         </header>
 
         <main className="container mx-auto p-4 md:p-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 space-y-6">
+              <DestinationSelector selectedDestinations={selectedDestinations} onSelectionChange={handleSelectionChange} />
               <DateSelectionPanel onDateChange={handleDateChange} />
               <section className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
                 <h2 className="text-xl font-bold mb-4 text-blue-700 dark:text-blue-400">1. 나의 여행 우선순위</h2>
@@ -198,60 +188,75 @@ export default function Home() {
             </div>
             
             <div className="lg:col-span-2 space-y-6">
-              <section className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-                <h2 className="text-xl font-bold mb-2 text-center text-blue-700 dark:text-blue-400">종합 비교 대시보드</h2>
-                <div className="relative h-80 md:h-96">
-                  <Radar data={radarChartData} options={{ maintainAspectRatio: false, scales: { r: { suggestedMin: 0, suggestedMax: 100 } } }} />
+              {selectedDestinations.length === 0 ? (
+                <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg text-center h-full flex flex-col justify-center items-center">
+                  <h2 className="text-2xl font-bold text-gray-800 dark:text-white">여행지를 선택해주세요</h2>
+                  <p className="mt-2 text-gray-500 dark:text-gray-400">왼쪽 패널에서 비교하고 싶은 도시를 검색하고 추가해보세요.</p>
                 </div>
-              </section>
+              ) : (
+                <>
+                  {loading && <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg text-center"><p>데이터를 불러오는 중입니다...</p></div>}
+                  {error && <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg text-center"><p>오류: {error.message}</p></div>}
+                  {!loading && !error && data?.destinationsByIds && (
+                    <>
+                      <section className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+                        <h2 className="text-xl font-bold mb-2 text-center text-blue-700 dark:text-blue-400">종합 비교 대시보드</h2>
+                        <div className="relative h-80 md:h-96">
+                          <Radar data={radarChartData} options={{ maintainAspectRatio: false, scales: { r: { suggestedMin: 0, suggestedMax: 100 } } }} />
+                        </div>
+                      </section>
 
-              <section className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-                <h2 className="text-xl font-bold mb-4 text-blue-700 dark:text-blue-400">상세 정보 탐색</h2>
-                <div className="border-b border-gray-200 dark:border-gray-700">
-                  <nav className="flex flex-wrap -mb-px">
-                    {data.destinations.map((d: Destination) => (
-                      <button key={d.id} onClick={() => setActiveTab(d.id)}
-                        className={`py-3 px-4 font-medium border-b-2 transition-colors ${activeTab === d.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
-                        {d.name}
-                      </button>
-                    ))}
-                  </nav>
-                </div>
-                {activeCityData && (
-                  <div className="mt-6 space-y-6">
-                    <div>
-                        <h3 className="text-2xl font-bold dark:text-white">{activeCityData.name}</h3>
-                        <p className="mt-1 text-gray-600 dark:text-gray-300">{activeCityData.summary}</p>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center">
-                       <div className="bg-gray-100 dark:bg-gray-700/50 p-4 rounded-lg">
-                         <div className="text-2xl">{activeCityData.weather.icon}</div>
-                         <div className="font-semibold mt-1 dark:text-white">날씨</div>
-                         <p className="text-sm text-gray-600 dark:text-gray-400">{activeCityData.weather.text}</p>
-                       </div>
-                       <div className="bg-gray-100 dark:bg-gray-700/50 p-4 rounded-lg">
-                         <div className="text-2xl">💸</div>
-                         <div className="font-semibold mt-1 dark:text-white">예상 경비</div>
-                         <p className="text-sm text-gray-600 dark:text-gray-400">{activeCityData.expenses.total}</p>
-                       </div>
-                    </div>
-                    <div className="grid md:grid-cols-2 gap-6">
-                        <div>
-                            <h4 className="text-lg font-semibold mb-3 dark:text-white">주요 즐길 거리</h4>
-                            <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300">
-                                {activeCityData.activities.map((act: string) => <li key={act}>{act}</li>)}
-                            </ul>
+                      <section className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+                        <h2 className="text-xl font-bold mb-4 text-blue-700 dark:text-blue-400">상세 정보 탐색</h2>
+                        <div className="border-b border-gray-200 dark:border-gray-700">
+                          <nav className="flex flex-wrap -mb-px">
+                            {data.destinationsByIds.map((d: Destination) => (
+                              <button key={d.id} onClick={() => setActiveTab(d.id)}
+                                className={`py-3 px-4 font-medium border-b-2 transition-colors ${activeTab === d.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
+                                {d.name}
+                              </button>
+                            ))}
+                          </nav>
                         </div>
-                        <div>
-                            <h4 className="text-lg font-semibold text-center mb-3 dark:text-white">예상 경비 구성</h4>
-                            <div className="relative h-64">
-                                <Doughnut data={doughnutChartData} options={{ maintainAspectRatio: false }} />
+                        {activeCityData && (
+                          <div className="mt-6 space-y-6">
+                            <div>
+                                <h3 className="text-2xl font-bold dark:text-white">{activeCityData.name}</h3>
+                                <p className="mt-1 text-gray-600 dark:text-gray-300">{activeCityData.summary}</p>
                             </div>
-                        </div>
-                    </div>
-                  </div>
-                )}
-              </section>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center">
+                               <div className="bg-gray-100 dark:bg-gray-700/50 p-4 rounded-lg">
+                                 <div className="text-2xl">{activeCityData.weather?.icon}</div>
+                                 <div className="font-semibold mt-1 dark:text-white">날씨</div>
+                                 <p className="text-sm text-gray-600 dark:text-gray-400">{activeCityData.weather?.text}</p>
+                               </div>
+                               <div className="bg-gray-100 dark:bg-gray-700/50 p-4 rounded-lg">
+                                 <div className="text-2xl">💸</div>
+                                 <div className="font-semibold mt-1 dark:text-white">예상 경비</div>
+                                 <p className="text-sm text-gray-600 dark:text-gray-400">{activeCityData.expenses?.total}</p>
+                               </div>
+                            </div>
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <div>
+                                    <h4 className="text-lg font-semibold mb-3 dark:text-white">주요 즐길 거리</h4>
+                                    <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300">
+                                        {activeCityData.activities?.map((act: string) => <li key={act}>{act}</li>)}
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 className="text-lg font-semibold text-center mb-3 dark:text-white">예상 경비 구성</h4>
+                                    <div className="relative h-64">
+                                        {activeCityData.expenses && <Doughnut data={doughnutChartData} options={{ maintainAspectRatio: false }} />}
+                                    </div>
+                                </div>
+                            </div>
+                          </div>
+                        )}
+                      </section>
+                    </>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </main>

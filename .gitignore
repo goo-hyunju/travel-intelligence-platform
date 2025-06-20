@@ -12,6 +12,9 @@
 /.next
 packages/web/.next/cache/
 packages/web/.next/static/webpack/
+packages/api/dist/
+packages/web/.next/
+
 # Production
 /build
 
