@@ -1,0 +1,33 @@
+//
+// 파일 경로: prisma/schema.prisma
+// 설명: 날씨, 경비, 추천 문구 등 상세 정보를 저장하기 위해 Destination 모델을 확장합니다.
+//
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Destination {
+  id     String @id
+  name   String
+  nameEn String? @map("name_en")
+
+  summary         String? @db.Text
+  flightTime      String? @map("flight_time")
+  recommendation  String? @db.Text
+  
+  // JSON 타입으로 상세 정보를 저장합니다.
+  scores          Json?   // { "cost": 0.9, "weather": 0.8, ... }
+  weather         Json?   // { "text": "...", "icon": "..." }
+  flight          Json?   // { "time": "...", "cost": "..." }
+  expenses        Json?   // { "total": "...", "breakdown": { ... } }
+  activities      String[]
+  accommodations  String[]
+  
+  @@map("destinations")
+}

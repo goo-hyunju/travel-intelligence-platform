@@ -1,0 +1,33 @@
+{
+  "name": "travel-intelligence-platform",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=api",
+    "dev:web": "npm run dev --workspace=web",
+    "build:api": "npm run build --workspace=api",
+    "build:web": "npm run build --workspace=web",
+    "prisma:migrate": "npx prisma migrate dev --schema=./prisma/schema.prisma --name init",
+    "prisma:seed": "npx prisma db seed --schema=./prisma/schema.prisma",
+    "prisma:generate": "npx prisma generate --schema=./prisma/schema.prisma",
+    "postinstall": "npm run prisma:generate"
+  },
+  "devDependencies": {
+    "@types/chart.js": "^2.9.41",
+    "@types/node": "^24.0.3",
+    "@types/react-chartjs-2": "^2.0.2",
+    "prisma": "^5.15.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.10.1",
+    "chart.js": "^4.5.0",
+    "react-chartjs-2": "^5.3.0"
+  }
+}

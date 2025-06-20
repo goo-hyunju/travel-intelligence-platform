@@ -1,0 +1,43 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+"""여행지 정보를 나타냅니다."""
+type Destination {
+  """추천 숙소 목록"""
+  accommodations: [String]
+
+  """주요 즐길 거리 목록"""
+  activities: [String]
+
+  """총 경비 및 세부 내역"""
+  expenses: JSONObject
+
+  """항공편 정보"""
+  flight: JSONObject
+  flightTime: String
+  id: ID!
+  name: String!
+  nameEn: String
+  recommendation: String
+
+  """각 항목별 정규화된 점수"""
+  scores: JSONObject
+  summary: String
+
+  """날씨 정보"""
+  weather: JSONObject
+}
+
+"""
+The `JSONObject` scalar type represents JSON objects as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSONObject
+
+type Query {
+  """ID로 특정 여행지 정보를 가져옵니다."""
+  destination(id: String!): Destination
+
+  """모든 여행지 목록을 가져옵니다."""
+  destinations: [Destination!]!
+}
