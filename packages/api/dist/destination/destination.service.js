@@ -14,43 +14,59 @@ exports.DestinationService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const weather_service_1 = require("../weather/weather.service");
+const country_info_service_1 = require("../country-info/country-info.service");
+const flight_scraper_service_1 = require("../scraper/flight-scraper.service");
 let DestinationService = DestinationService_1 = class DestinationService {
-    constructor(prisma, weatherService) {
+    constructor(prisma, weatherService, countryInfoService, flightScraperService) {
         this.prisma = prisma;
         this.weatherService = weatherService;
+        this.countryInfoService = countryInfoService;
+        this.flightScraperService = flightScraperService;
         this.logger = new common_1.Logger(DestinationService_1.name);
     }
     async findAll() {
         const destinations = await this.prisma.destination.findMany();
-        const enrichedDestinations = await Promise.all(destinations.map(async (dest) => {
-            const liveWeather = await this.weatherService.getWeatherByCityName(dest.nameEn);
-            if (liveWeather) {
-                this.logger.log(`Fetched live weather for ${dest.name}`);
-                return { ...dest, weather: liveWeather };
-            }
-            return dest;
-        }));
-        return enrichedDestinations;
+        return Promise.all(destinations.map(dest => this.enrichDestination(dest)));
     }
     async findOneById(id) {
-        const destination = await this.prisma.destination.findUnique({
-            where: { id },
-        });
-        if (!destination) {
+        const destination = await this.prisma.destination.findUnique({ where: { id } });
+        if (!destination)
             return null;
+        return this.enrichDestination(destination);
+    }
+    async enrichDestination(destination) {
+        const targetMonth = 7;
+        const iataMap = {
+            cebu: 'CEB', nhatrang: 'CXR', danang: 'DAD',
+            fukuoka: 'FUK', sapporo: 'CTS', bangkok: 'BKK',
+        };
+        const iataCode = iataMap[destination.id];
+        const [historicalWeather, countryInfo, flightInfo] = await Promise.all([
+            this.weatherService.getHistoricalWeatherForMonth(destination.nameEn, targetMonth),
+            this.countryInfoService.getInfoByCountryName(destination.nameEn),
+            iataCode ? this.flightScraperService.scrapeFlightInfo('ICN', iataCode) : Promise.resolve(null),
+        ]);
+        const updatedDest = { ...destination };
+        if (historicalWeather)
+            updatedDest.weather = historicalWeather;
+        if (countryInfo)
+            updatedDest.summary = countryInfo.replace(/<[^>]*>?/gm, ' ').replace(/ㅇ/g, '•');
+        if (flightInfo) {
+            updatedDest.flight = { time: flightInfo.time, cost: `약 ${flightInfo.price.toLocaleString()}원 ~` };
+            if (typeof updatedDest.expenses === 'object' && updatedDest.expenses !== null && 'breakdown' in updatedDest.expenses) {
+                const expenses = updatedDest.expenses;
+                expenses.breakdown.flight = flightInfo.price;
+            }
         }
-        const liveWeather = await this.weatherService.getWeatherByCityName(destination.nameEn);
-        if (liveWeather) {
-            this.logger.log(`Fetched live weather for ${destination.name}`);
-            return { ...destination, weather: liveWeather };
-        }
-        return destination;
+        return updatedDest;
     }
 };
 exports.DestinationService = DestinationService;
 exports.DestinationService = DestinationService = DestinationService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        weather_service_1.WeatherService])
+        weather_service_1.WeatherService,
+        country_info_service_1.CountryInfoService,
+        flight_scraper_service_1.FlightScraperService])
 ], DestinationService);
 //# sourceMappingURL=destination.service.js.map

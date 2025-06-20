@@ -1,17 +1,21 @@
+
+//
+// 2. 파일 경로: packages/web/src/pages/index.tsx (수정)
+// 설명: 메인 페이지에 날짜 선택 패널을 추가하고, 선택된 날짜를 백엔드로 전달하도록 수정합니다.
+//
 import { useState, useMemo } from 'react';
 import { useQuery, gql } from '@apollo/client';
 import Head from 'next/head';
 import { Chart as ChartJS, registerables } from 'chart.js';
 import { Radar, Doughnut } from 'react-chartjs-2';
+import DateSelectionPanel from '../components/DateSelectionPanel';
 
-// Chart.js의 모든 구성 요소를 등록합니다.
 ChartJS.register(...registerables);
 
-// --- GraphQL 쿼리 정의 ---
-// 데이터베이스에서 모든 상세 정보를 가져오도록 쿼리를 확장합니다.
+// [수정] GraphQL 쿼리가 날짜 변수를 받도록 변경합니다.
 const GET_DESTINATIONS = gql`
-  query GetDestinations {
-    destinations {
+  query GetDestinations($month: Int!, $startDate: String!, $endDate: String!) {
+    destinations(month: $month, startDate: $startDate, endDate: $endDate) {
       id
       name
       nameEn
@@ -29,14 +33,12 @@ const GET_DESTINATIONS = gql`
 `;
 
 // --- 타입 정의 ---
-// 우선순위 항목의 타입을 정의합니다.
 type Priority = {
   id: 'cost' | 'weather' | 'activity' | 'flight' | 'uniqueness';
   label: string;
   icon: string;
 };
 
-// 백엔드에서 받아올 여행지 데이터의 타입을 정의합니다.
 interface Destination {
   id: string;
   name: string;
@@ -52,8 +54,6 @@ interface Destination {
   accommodations: string[];
 }
 
-// --- 상수 정의 ---
-// 슬라이더로 조절할 우선순위 목록입니다.
 const PRIORITIES: Priority[] = [
   { id: 'cost', label: '가성비', icon: '💰' },
   { id: 'weather', label: '날씨', icon: '☀️' },
@@ -63,30 +63,39 @@ const PRIORITIES: Priority[] = [
 ];
 
 export default function Home() {
-  // --- 상태 관리 ---
-  // 우선순위 슬라이더 값들을 저장하는 상태
+  const [dates, setDates] = useState({
+    startDate: '2025-08-01',
+    endDate: '2025-08-05',
+    month: 8,
+  });
+
   const [priorities, setPriorities] = useState<Record<string, number>>({
     cost: 50, weather: 50, activity: 50, flight: 50, uniqueness: 50,
   });
-  // 현재 선택된 상세 정보 탭을 저장하는 상태
   const [activeTab, setActiveTab] = useState<string | null>(null);
 
-  // --- 데이터 페칭 ---
-  const { loading, error, data } = useQuery(GET_DESTINATIONS, {
+  const { loading, error, data, refetch } = useQuery(GET_DESTINATIONS, {
+    variables: { ...dates },
     onCompleted: (fetchedData) => {
-      // 데이터 로딩이 완료되면 첫 번째 도시를 활성 탭으로 설정
-      if (fetchedData?.destinations?.length > 0) {
+      if (fetchedData?.destinations?.length > 0 && !activeTab) {
         setActiveTab(fetchedData.destinations[0].id);
       }
     },
   });
 
-  // --- 핵심 로직: 점수 계산 ---
-  // 사용자의 우선순위가 변경될 때마다 여행지 순위를 다시 계산합니다.
+  const handleDateChange = (startDate: string, endDate: string) => {
+    const newMonth = new Date(startDate).getMonth() + 1;
+    setDates({ startDate, endDate, month: newMonth });
+    refetch({ startDate, endDate, month: newMonth });
+  };
+  
+  const handleSliderChange = (id: string, value: string) => {
+    setPriorities((prev) => ({ ...prev, [id]: Number(value) }));
+  };
+
   const rankedDestinations = useMemo(() => {
     if (!data?.destinations) return [];
 
-    // 1. 가중치 정규화
     const totalPriority = Object.values(priorities).reduce((sum, val) => sum + val, 0);
     const weights: Record<string, number> = {};
     if (totalPriority > 0) {
@@ -95,7 +104,6 @@ export default function Home() {
       }
     }
     
-    // 2. 각 여행지의 총점 계산
     const cityScores = data.destinations.map((dest: Destination) => {
       let totalScore = 0;
       for (const priorityId in weights) {
@@ -104,37 +112,21 @@ export default function Home() {
       return { ...dest, score: totalScore };
     });
 
-    // 3. 점수 기준으로 내림차순 정렬
     interface CityScore extends Destination {
       score: number;
     }
     return cityScores.sort((a: CityScore, b: CityScore) => b.score - a.score);
   }, [data, priorities]);
 
-  // --- 이벤트 핸들러 ---
-  // 슬라이더 값이 변경될 때 호출되는 함수
-  const handleSliderChange = (id: string, value: string) => {
-    setPriorities((prev) => ({ ...prev, [id]: Number(value) }));
-  };
-
-  // --- 렌더링을 위한 데이터 준비 ---
   const topCity = rankedDestinations[0];
   const activeCityData = data?.destinations.find((d: Destination) => d.id === activeTab);
   
-  // Radar Chart 데이터
-  interface RadarChartData {
-    labels: string[];
-    datasets: RadarChartDataset[];
-  }
-
   interface RadarChartDataset {
-    label: string;
-    data: number[];
-    backgroundColor: string;
-    borderColor: string;
-    borderWidth: number;
+    label: string; data: number[]; backgroundColor: string; borderColor: string; borderWidth: number;
   }
-
+  interface RadarChartData {
+    labels: string[]; datasets: RadarChartDataset[];
+  }
   const radarChartData: RadarChartData = {
     labels: data?.destinations.map((d: Destination) => d.name) || [],
     datasets: [{
@@ -146,7 +138,6 @@ export default function Home() {
     }],
   };
   
-  // Doughnut Chart 데이터
   const doughnutChartData = activeCityData ? {
     labels: ['항공', '숙소', '액티비티', '식비/기타'],
     datasets: [{
@@ -156,8 +147,6 @@ export default function Home() {
     }],
   } : { labels: [], datasets: [] };
 
-
-  // 로딩 및 에러 처리
   if (loading) return <div className="flex justify-center items-center min-h-screen">로딩 중...</div>;
   if (error) return <div className="flex justify-center items-center min-h-screen">오류가 발생했습니다: {error.message}</div>;
 
@@ -172,17 +161,15 @@ export default function Home() {
       <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
         <header className="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-30">
           <div className="container mx-auto px-4 py-4">
-            <h1 className="text-2xl md:text-3xl font-bold text-center text-gray-800 dark:text-white">나에게 꼭 맞는 7월 여름휴가 찾기</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-center text-gray-800 dark:text-white">나에게 꼭 맞는 여행 찾기</h1>
             <p className="text-center text-gray-500 dark:text-gray-300 mt-1">여행 스타일을 설정하고 최적의 목적지를 추천 받아보세요.</p>
           </div>
         </header>
 
         <main className="container mx-auto p-4 md:p-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-            {/* 좌측: 컨트롤 패널 & 추천 */}
             <div className="lg:col-span-1 space-y-6">
-              {/* 우선순위 설정 */}
+              <DateSelectionPanel onDateChange={handleDateChange} />
               <section className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
                 <h2 className="text-xl font-bold mb-4 text-blue-700 dark:text-blue-400">1. 나의 여행 우선순위</h2>
                 <div className="space-y-4">
@@ -199,7 +186,6 @@ export default function Home() {
                   ))}
                 </div>
               </section>
-              {/* 추천 섹션 */}
               {topCity && (
                 <section className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
                   <h2 className="text-xl font-bold mb-4 text-blue-700 dark:text-blue-400">2. 당신을 위한 최고의 여행지</h2>
@@ -210,10 +196,8 @@ export default function Home() {
                 </section>
               )}
             </div>
-
-            {/* 우측: 대시보드 & 상세 정보 */}
+            
             <div className="lg:col-span-2 space-y-6">
-              {/* 레이더 차트 */}
               <section className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
                 <h2 className="text-xl font-bold mb-2 text-center text-blue-700 dark:text-blue-400">종합 비교 대시보드</h2>
                 <div className="relative h-80 md:h-96">
@@ -221,7 +205,6 @@ export default function Home() {
                 </div>
               </section>
 
-              {/* 상세 정보 */}
               <section className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
                 <h2 className="text-xl font-bold mb-4 text-blue-700 dark:text-blue-400">상세 정보 탐색</h2>
                 <div className="border-b border-gray-200 dark:border-gray-700">

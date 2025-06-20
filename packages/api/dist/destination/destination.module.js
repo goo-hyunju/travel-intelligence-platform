@@ -12,12 +12,14 @@ const destination_resolver_1 = require("./destination.resolver");
 const destination_service_1 = require("./destination.service");
 const prisma_module_1 = require("../prisma/prisma.module");
 const weather_module_1 = require("../weather/weather.module");
+const country_info_module_1 = require("../country-info/country-info.module");
+const flight_scraper_module_1 = require("../scraper/flight-scraper.module");
 let DestinationModule = class DestinationModule {
 };
 exports.DestinationModule = DestinationModule;
 exports.DestinationModule = DestinationModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, weather_module_1.WeatherModule],
+        imports: [prisma_module_1.PrismaModule, weather_module_1.WeatherModule, country_info_module_1.CountryInfoModule, flight_scraper_module_1.FlightScraperModule],
         providers: [destination_resolver_1.DestinationResolver, destination_service_1.DestinationService],
     })
 ], DestinationModule);

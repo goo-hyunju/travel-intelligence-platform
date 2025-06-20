@@ -1,15 +1,20 @@
+
+//
+// 9. 파일 경로: packages/api/src/app.module.ts (수정)
+//
 import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
-import { ConfigModule } from '@nestjs/config'; // ConfigModule 임포트
+import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { DestinationModule } from './destination/destination.module';
-import { WeatherModule } from './weather/weather.module'; // WeatherModule 임포트
+import { WeatherModule } from './weather/weather.module';
+import { CountryInfoModule } from './country-info/country-info.module';
+import { FlightScraperModule } from './scraper/flight-scraper.module';
 
 @Module({
   imports: [
-    // .env 파일을 전역으로 사용하기 위해 isGlobal 옵션을 true로 설정합니다.
     ConfigModule.forRoot({ isGlobal: true }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
@@ -19,7 +24,9 @@ import { WeatherModule } from './weather/weather.module'; // WeatherModule 임�
     }),
     PrismaModule,
     DestinationModule,
-    WeatherModule, // WeatherModule 추가
+    WeatherModule,
+    CountryInfoModule,
+    FlightScraperModule,
   ],
 })
 export class AppModule {}

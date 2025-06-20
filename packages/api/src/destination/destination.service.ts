@@ -1,6 +1,12 @@
+
+//
+// 8. 파일 경로: packages/api/src/destination/destination.service.ts (수정)
+//
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { WeatherService } from '../weather/weather.service'; // WeatherService 임포트
+import { WeatherService } from '../weather/weather.service';
+import { CountryInfoService } from '../country-info/country-info.service';
+import { FlightScraperService } from '../scraper/flight-scraper.service';
 
 @Injectable()
 export class DestinationService {
@@ -8,47 +14,47 @@ export class DestinationService {
 
   constructor(
     private prisma: PrismaService,
-    private weatherService: WeatherService, // WeatherService 주입
+    private weatherService: WeatherService,
+    private countryInfoService: CountryInfoService,
+    private flightScraperService: FlightScraperService,
   ) {}
 
   async findAll() {
     const destinations = await this.prisma.destination.findMany();
-
-    // 각 여행지의 날씨 정보를 실시간으로 가져와서 덮어씁니다.
-    const enrichedDestinations = await Promise.all(destinations.map(async (dest) => {
-      const liveWeather = await this.weatherService.getWeatherByCityName(dest.nameEn);
-      
-      // liveWeather가 성공적으로 받아와졌을 때만 DB 데이터를 덮어씁니다.
-      if (liveWeather) {
-        this.logger.log(`Fetched live weather for ${dest.name}`);
-        return { ...dest, weather: liveWeather };
-      }
-      
-      // 실패 시에는 원래 DB에 있던 데이터를 그대로 사용합니다.
-      return dest;
-    }));
-    
-    return enrichedDestinations;
+    return Promise.all(destinations.map(dest => this.enrichDestination(dest)));
   }
 
-  // [수정됨] 빠져있던 findOneById 메소드를 추가합니다.
   async findOneById(id: string) {
-    const destination = await this.prisma.destination.findUnique({
-      where: { id },
-    });
+    const destination = await this.prisma.destination.findUnique({ where: { id } });
+    if (!destination) return null;
+    return this.enrichDestination(destination);
+  }
 
-    if (!destination) {
-      return null;
+  private async enrichDestination(destination: any) {
+    const targetMonth = 7;
+    const iataMap: { [key: string]: string } = {
+      cebu: 'CEB', nhatrang: 'CXR', danang: 'DAD',
+      fukuoka: 'FUK', sapporo: 'CTS', bangkok: 'BKK',
+    };
+    const iataCode = iataMap[destination.id];
+
+    const [historicalWeather, countryInfo, flightInfo] = await Promise.all([
+      this.weatherService.getHistoricalWeatherForMonth(destination.nameEn, targetMonth),
+      this.countryInfoService.getInfoByCountryName(destination.nameEn),
+      iataCode ? this.flightScraperService.scrapeFlightInfo('ICN', iataCode) : Promise.resolve(null),
+    ]);
+    
+    const updatedDest = { ...destination };
+    if (historicalWeather) updatedDest.weather = historicalWeather;
+    if (countryInfo) updatedDest.summary = countryInfo.replace(/<[^>]*>?/gm, ' ').replace(/ㅇ/g, '•');
+    if (flightInfo) {
+      updatedDest.flight = { time: flightInfo.time, cost: `약 ${flightInfo.price.toLocaleString()}원 ~` };
+      if (typeof updatedDest.expenses === 'object' && updatedDest.expenses !== null && 'breakdown' in updatedDest.expenses) {
+        const expenses = updatedDest.expenses as { breakdown: { flight: number } };
+        expenses.breakdown.flight = flightInfo.price;
+      }
     }
-
-    // 단일 조회 시에도 실시간 날씨 정보를 가져옵니다.
-    const liveWeather = await this.weatherService.getWeatherByCityName(destination.nameEn);
-
-    if (liveWeather) {
-      this.logger.log(`Fetched live weather for ${destination.name}`);
-      return { ...destination, weather: liveWeather };
-    }
-
-    return destination;
+    
+    return updatedDest;
   }
 }

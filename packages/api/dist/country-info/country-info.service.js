@@ -25,24 +25,20 @@ let CountryInfoService = CountryInfoService_1 = class CountryInfoService {
         this.apiKey = this.configService.get('GO_DATA_API_KEY');
     }
     async getInfoByCountryName(countryEnName) {
-        if (!this.apiKey) {
-            this.logger.warn('GO_DATA_API_KEY is not configured.');
+        if (!this.apiKey)
             return null;
-        }
         const url = `${this.baseUrl}?serviceKey=${this.apiKey}&countryEnName=${countryEnName}`;
         try {
             const response = await (0, rxjs_1.firstValueFrom)(this.httpService.get(url));
-            const xmlData = response.data;
-            const jsonData = convert.xml2js(xmlData, { compact: true });
+            const jsonData = convert.xml2js(response.data, { compact: true });
             const item = jsonData?.response?.body?.items?.item;
             if (item && item.basic && item.basic._text) {
                 return item.basic._text;
             }
-            this.logger.warn(`No 'basic' info found for ${countryEnName} in API response.`);
             return '기본 정보를 불러올 수 없습니다.';
         }
         catch (error) {
-            this.logger.error(`Failed to fetch country info for ${countryEnName}:`, error.response?.data || error.message);
+            this.logger.error(`Failed to fetch country info for ${countryEnName}`, error.message);
             return null;
         }
     }

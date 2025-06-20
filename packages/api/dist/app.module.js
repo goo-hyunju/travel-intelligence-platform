@@ -15,6 +15,8 @@ const config_1 = require("@nestjs/config");
 const prisma_module_1 = require("./prisma/prisma.module");
 const destination_module_1 = require("./destination/destination.module");
 const weather_module_1 = require("./weather/weather.module");
+const country_info_module_1 = require("./country-info/country-info.module");
+const flight_scraper_module_1 = require("./scraper/flight-scraper.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -31,6 +33,8 @@ exports.AppModule = AppModule = __decorate([
             prisma_module_1.PrismaModule,
             destination_module_1.DestinationModule,
             weather_module_1.WeatherModule,
+            country_info_module_1.CountryInfoModule,
+            flight_scraper_module_1.FlightScraperModule,
         ],
     })
 ], AppModule);
