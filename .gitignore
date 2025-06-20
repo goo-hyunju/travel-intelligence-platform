@@ -10,6 +10,7 @@
 /dist
 /out
 /.next
+packages/web/.next/cache/
 
 # Production
 /build
