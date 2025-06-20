@@ -1,6 +1,4 @@
-// 4. 파일 경로: packages/api/src/country-info/country-info.service.ts (신규 또는 수정)
-// 설명: 공공데이터포털 API를 호출하여 국가 정보를 가져옵니다.
-//
+
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -21,18 +19,24 @@ export class CountryInfoService {
   }
 
   async getInfoByCountryName(countryEnName: string): Promise<string | null> {
-    if (!this.apiKey) return null;
+    if (!this.apiKey) {
+      this.logger.warn('GO_DATA_API_KEY is not configured.');
+      return null;
+    }
     const url = `${this.baseUrl}?serviceKey=${this.apiKey}&countryEnName=${countryEnName}`;
     try {
       const response = await firstValueFrom(this.httpService.get(url));
       const jsonData: any = convert.xml2js(response.data, { compact: true });
+      
       const item = jsonData?.response?.body?.items?.item;
       if (item && item.basic && item.basic._text) {
         return item.basic._text;
       }
+
+      this.logger.warn(`No 'basic' info found for ${countryEnName} in API response.`);
       return '기본 정보를 불러올 수 없습니다.';
     } catch (error) {
-      this.logger.error(`Failed to fetch country info for ${countryEnName}`, error.message);
+      this.logger.error(`Failed to fetch country info for ${countryEnName}:`, error.message);
       return null;
     }
   }

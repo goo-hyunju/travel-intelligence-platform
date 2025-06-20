@@ -20,26 +20,25 @@ let FlightScraperService = FlightScraperService_1 = class FlightScraperService {
         this.httpService = httpService;
         this.logger = new common_1.Logger(FlightScraperService_1.name);
     }
-    async scrapeFlightInfo(origin, destination) {
-        const url = `https://www.kayak.co.kr/flights/${origin}-${destination}/2025-07-15/2025-07-20?sort=price_a`;
-        this.logger.log(`Scraping flight info from: ${url}`);
+    async scrapeFlightInfo(origin, destination, startDate, endDate) {
+        const formattedStartDate = startDate.replace(/-/g, '');
+        const formattedEndDate = endDate.replace(/-/g, '');
+        const url = `https://flight.naver.com/flights/international/${origin}-${destination}-${formattedStartDate}/${destination}-${origin}-${formattedEndDate}`;
+        this.logger.log(`Scraping Naver flight info from: ${url}`);
         try {
-            const response = await (0, rxjs_1.firstValueFrom)(this.httpService.get(url, {
-                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36' },
-            }));
-            const $ = cheerio.load(response.data);
-            const priceText = $('.J0x0 .f8F1-price-text').first().text();
-            const timeText = $('.J0x0 .xdW8-duration').first().text();
+            const { data } = await (0, rxjs_1.firstValueFrom)(this.httpService.get(url, {}));
+            const $ = cheerio.load(data);
+            const priceText = $('.concurrent_ConcurrentItem__2lQVG .item_num__3R0Vz').first().text();
+            const timeText = $('.concurrent_ConcurrentItem__2lQVG .route_time__-2Z1T').first().text();
             if (!priceText) {
-                this.logger.warn(`Price not found for ${origin}-${destination}.`);
+                this.logger.warn(`Could not find price on Naver for ${origin}-${destination}.`);
                 return null;
             }
             const price = parseInt(priceText.replace(/[^0-9]/g, ''));
-            this.logger.log(`Scraped Data for ${destination}: Price - ${price}, Time - ${timeText}`);
             return { price, time: timeText };
         }
         catch (error) {
-            this.logger.error(`Failed to scrape flight info for ${origin}-${destination}:`, error.message);
+            this.logger.error(`Failed to scrape Naver flight info:`, error.message);
             return null;
         }
     }

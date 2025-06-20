@@ -20,27 +20,32 @@ let DestinationResolver = class DestinationResolver {
     constructor(destinationService) {
         this.destinationService = destinationService;
     }
-    async getDestinations() {
-        return this.destinationService.findAll();
+    async getAllDestinations() {
+        return this.destinationService.findAllForList();
     }
-    async getDestination(id) {
-        return this.destinationService.findOneById(id);
+    async getDestinationsByIds(ids, month, startDate, endDate) {
+        if (ids.length === 0)
+            return [];
+        return this.destinationService.findManyByIds(ids, month, startDate, endDate);
     }
 };
 exports.DestinationResolver = DestinationResolver;
 __decorate([
-    (0, graphql_1.Query)(() => [destination_model_1.Destination], { name: 'destinations', description: '모든 여행지 목록을 가져옵니다.' }),
+    (0, graphql_1.Query)(() => [destination_model_1.Destination], { name: 'allDestinations' }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
-], DestinationResolver.prototype, "getDestinations", null);
+], DestinationResolver.prototype, "getAllDestinations", null);
 __decorate([
-    (0, graphql_1.Query)(() => destination_model_1.Destination, { name: 'destination', nullable: true, description: 'ID로 특정 여행지 정보를 가져옵니다.' }),
-    __param(0, (0, graphql_1.Args)('id')),
+    (0, graphql_1.Query)(() => [destination_model_1.Destination], { name: 'destinationsByIds' }),
+    __param(0, (0, graphql_1.Args)('ids', { type: () => [String] })),
+    __param(1, (0, graphql_1.Args)('month', { type: () => graphql_1.Int })),
+    __param(2, (0, graphql_1.Args)('startDate')),
+    __param(3, (0, graphql_1.Args)('endDate')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Array, Number, String, String]),
     __metadata("design:returntype", Promise)
-], DestinationResolver.prototype, "getDestination", null);
+], DestinationResolver.prototype, "getDestinationsByIds", null);
 exports.DestinationResolver = DestinationResolver = __decorate([
     (0, graphql_1.Resolver)(() => destination_model_1.Destination),
     __metadata("design:paramtypes", [destination_service_1.DestinationService])

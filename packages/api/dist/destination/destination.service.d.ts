@@ -9,7 +9,7 @@ export declare class DestinationService {
     private flightScraperService;
     private readonly logger;
     constructor(prisma: PrismaService, weatherService: WeatherService, countryInfoService: CountryInfoService, flightScraperService: FlightScraperService);
-    findAll(): Promise<any[]>;
-    findOneById(id: string): Promise<any>;
+    findAll(month: number, startDate: string, endDate: string): Promise<any[]>;
+    findOneById(id: string, month: number, startDate: string, endDate: string): Promise<any>;
     private enrichDestination;
 }

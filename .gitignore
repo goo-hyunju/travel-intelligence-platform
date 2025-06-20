@@ -11,7 +11,7 @@
 /out
 /.next
 packages/web/.next/cache/
-
+packages/web/.next/static/webpack/
 # Production
 /build
 

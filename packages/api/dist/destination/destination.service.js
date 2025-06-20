@@ -24,27 +24,30 @@ let DestinationService = DestinationService_1 = class DestinationService {
         this.flightScraperService = flightScraperService;
         this.logger = new common_1.Logger(DestinationService_1.name);
     }
-    async findAll() {
+    async findAll(month, startDate, endDate) {
         const destinations = await this.prisma.destination.findMany();
-        return Promise.all(destinations.map(dest => this.enrichDestination(dest)));
+        return Promise.all(destinations.map(dest => this.enrichDestination(dest, month, startDate, endDate)));
     }
-    async findOneById(id) {
+    async findOneById(id, month, startDate, endDate) {
         const destination = await this.prisma.destination.findUnique({ where: { id } });
         if (!destination)
             return null;
-        return this.enrichDestination(destination);
+        return this.enrichDestination(destination, month, startDate, endDate);
     }
-    async enrichDestination(destination) {
-        const targetMonth = 7;
+    async enrichDestination(destination, month, startDate, endDate) {
         const iataMap = {
-            cebu: 'CEB', nhatrang: 'CXR', danang: 'DAD',
-            fukuoka: 'FUK', sapporo: 'CTS', bangkok: 'BKK',
+            cebu: 'CEB',
+            nhatrang: 'CXR',
+            danang: 'DAD',
+            fukuoka: 'FUK',
+            sapporo: 'CTS',
+            bangkok: 'BKK',
         };
         const iataCode = iataMap[destination.id];
         const [historicalWeather, countryInfo, flightInfo] = await Promise.all([
-            this.weatherService.getHistoricalWeatherForMonth(destination.nameEn, targetMonth),
+            this.weatherService.getHistoricalWeatherForMonth(destination.nameEn, month),
             this.countryInfoService.getInfoByCountryName(destination.nameEn),
-            iataCode ? this.flightScraperService.scrapeFlightInfo('ICN', iataCode) : Promise.resolve(null),
+            iataCode ? this.flightScraperService.scrapeFlightInfo('ICN', iataCode, startDate, endDate) : Promise.resolve(null),
         ]);
         const updatedDest = { ...destination };
         if (historicalWeather)

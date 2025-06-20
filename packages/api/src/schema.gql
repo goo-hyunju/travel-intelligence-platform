@@ -35,9 +35,6 @@ The `JSONObject` scalar type represents JSON objects as specified by [ECMA-404](
 scalar JSONObject
 
 type Query {
-  """ID로 특정 여행지 정보를 가져옵니다."""
-  destination(id: String!): Destination
-
-  """모든 여행지 목록을 가져옵니다."""
-  destinations: [Destination!]!
+  destination(endDate: String!, id: String!, month: Int!, startDate: String!): Destination
+  destinations(endDate: String!, month: Int!, startDate: String!): [Destination!]!
 }
