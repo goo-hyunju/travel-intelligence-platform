@@ -1,7 +1,4 @@
-//
-// 1. 파일 경로: prisma/schema.prisma (수정)
-// 설명: 실시간 데이터를 저장하기 위한 RealtimeData 모델을 다시 추가하고, Destination 모델과 연결합니다.
-//
+
 generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/client"
@@ -16,11 +13,11 @@ model Destination {
   id     String @id
   name   String
   nameEn String? @map("name_en")
-
+  iataCode        String? @map("iata_code")
+  
   summary         String? @db.Text
   recommendation  String? @db.Text
   flightTime      String? @map("flight_time")
-
   scores          Json?
   weather         Json?
   flight          Json?
@@ -28,21 +25,21 @@ model Destination {
   activities      String[]
   accommodations  String[]
   
-  // [추가] Destination과 RealtimeData를 1:1 관계로 연결합니다.
-  realtimeData RealtimeData?
+  historicalWeather HistoricalWeather[]
   
   @@map("destinations")
 }
 
-// [신규] 크롤링한 데이터를 저장할 모델을 다시 추가합니다.
-model RealtimeData {
-  id                   String      @id @default(cuid())
-  destinationId        String      @unique @map("destination_id")
-  destination          Destination @relation(fields: [destinationId], references: [id])
-  
-  currentFlightPrice   Int?        @map("current_flight_price")
-  currentFlightTime    String?     @map("current_flight_time")
-  lastScrapedAt        DateTime    @updatedAt @map("last_scraped_at")
+model HistoricalWeather {
+  id            String      @id @default(cuid())
+  destinationId String      @map("destination_id")
+  destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  month         Int
+  avgTemp       Float?      @map("avg_temp")
+  summary       String?
+  icon          String?
+  lastScrapedAt DateTime    @updatedAt @map("last_scraped_at")
 
-  @@map("realtime_data")
+  @@unique([destinationId, month])
+  @@map("historical_weather")
 }
