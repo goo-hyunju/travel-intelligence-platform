@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/client"
@@ -10,11 +9,10 @@ datasource db {
 }
 
 model Destination {
-  id     String @id
-  name   String
-  nameEn String? @map("name_en")
+  id              String  @id
+  name            String
+  nameEn          String? @map("name_en")
   iataCode        String? @map("iata_code")
-  
   summary         String? @db.Text
   recommendation  String? @db.Text
   flightTime      String? @map("flight_time")
@@ -24,7 +22,6 @@ model Destination {
   expenses        Json?
   activities      String[]
   accommodations  String[]
-  
   historicalWeather HistoricalWeather[]
   
   @@map("destinations")

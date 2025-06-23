@@ -18,12 +18,27 @@ export class WeatherService {
     });
     if (existingData) return existingData;
 
+    this.logger.log(`Cache miss. Scraping weather for: ${city} - Month ${month}`);
     const scrapedData = await this.scraper.scrape(city, month);
     if (scrapedData) {
       return this.prisma.historicalWeather.create({
-        data: { destinationId, month, ...scrapedData },
+        data: { 
+            destinationId, 
+            month, 
+            avgTemp: scrapedData.avgTemp,
+            summary: scrapedData.summary,
+            icon: this.getIconForTemp(scrapedData.avgTemp) 
+        },
       });
     }
     return null;
+  }
+  
+  private getIconForTemp(temp: number): string {
+    if (temp >= 28) return '🥵';
+    if (temp >= 22) return '☀️';
+    if (temp >= 15) return '🌸';
+    if (temp >= 5) return '🍂';
+    return '❄️';
   }
 }
