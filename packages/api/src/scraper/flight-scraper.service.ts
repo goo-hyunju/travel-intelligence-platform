@@ -1,6 +1,3 @@
-// 1. 파일 경로: packages/api/src/scraper/flight-scraper.service.ts
-// 설명: Playwright를 사용하여 네이버 항공 정보를 크롤링합니다.
-//
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Browser, Page, chromium } from 'playwright';
 
@@ -29,9 +26,11 @@ export class FlightScraperService implements OnModuleInit, OnModuleDestroy {
 
     try {
       page = await this.browser.newPage();
-      await page.goto(url, { waitUntil: 'networkidle' });
+      // [수정] 타임아웃을 60초로 늘리고, 대기 전략을 수정합니다.
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-      await page.waitForSelector('.concurrent_ConcurrentItem__2lQVG', { timeout: 15000 });
+      // [수정] 결과가 나타날 때까지 최대 30초까지 기다립니다.
+      await page.waitForSelector('.concurrent_ConcurrentItem__2lQVG', { timeout: 30000 });
 
       const flightData = await page.evaluate(() => {
         const item = document.querySelector('.concurrent_ConcurrentItem__2lQVG');
